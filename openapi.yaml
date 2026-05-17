@@ -1,0 +1,488 @@
+openapi: 3.0.3
+info:
+  title: ProntoJá API
+  version: "1.0.0"
+  description: API DB-first gerada a partir de database/schema.sql — endpoints para auth, pedidos, restaurantes, entregas, produtos, categorias, endereços e pagamentos.
+servers:
+  - url: http://localhost:8001
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service healthy
+  /api:
+    get:
+      summary: API discovery
+      responses:
+        '200':
+          description: Endpoints list
+  /api/auth/register:
+    post:
+      summary: Register a new client user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Session tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/auth/login:
+    post:
+      summary: Login (email/phone)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Session tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/auth/refresh:
+    post:
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: New session
+  /api/me:
+    get:
+      summary: Current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+  /api/orders:
+    get:
+      summary: List orders (scoped by role)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Orders list
+    post:
+      summary: Create order (client)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+  /api/orders/{id}:
+    get:
+      summary: Show order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+  /api/orders/{id}/status:
+    put:
+      summary: Update generic order status
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+  /api/restaurant/orders:
+    get:
+      summary: List orders for authenticated restaurant
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Orders
+  /api/restaurant/orders/{id}/accept:
+    put:
+      summary: Restaurant accepts order
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated order
+  /api/restaurant/orders/{id}/reject:
+    put:
+      summary: Restaurant rejects order
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rejected
+  /api/restaurant/orders/{id}/preparing:
+    put:
+      summary: Restaurant marks preparing
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+  /api/restaurant/orders/{id}/ready:
+    put:
+      summary: Restaurant marks ready
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+  /api/deliveries/available:
+    get:
+      summary: List available deliveries (ready orders)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Available deliveries
+  /api/deliveries/me:
+    get:
+      summary: Deliveries for current delivery user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: My deliveries
+  /api/deliveries/{id}/accept:
+    put:
+      summary: Accept assignment
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Assigned
+  /api/deliveries/{id}/pickup:
+    put:
+      summary: Mark pickup
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Picked up
+  /api/deliveries/{id}/delivered:
+    put:
+      summary: Mark delivered
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Delivered
+  /api/deliveries/{id}/location:
+    put:
+      summary: Update current location
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_latitude, current_longitude]
+              properties:
+                current_latitude:
+                  type: number
+                current_longitude:
+                  type: number
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Location updated
+  /api/products:
+    get:
+      summary: List products
+    post:
+      summary: Create product (restaurant)
+      security:
+        - bearerAuth: []
+  /api/products/{id}:
+    get:
+      summary: Get product
+    put:
+      summary: Update product (restaurant)
+    delete:
+      summary: Delete product
+  /api/categories:
+    get:
+      summary: List categories
+    post:
+      summary: Create category (restaurant)
+  /api/addresses:
+    get:
+      summary: List addresses (client)
+      security:
+        - bearerAuth: []
+    post:
+      summary: Create address (client)
+      security:
+        - bearerAuth: []
+  /api/payments:
+    get:
+      summary: List payments (admin/restaurant/client)
+      security:
+        - bearerAuth: []
+  /api/reviews/restaurant:
+    post:
+      summary: Create restaurant review
+      security:
+        - bearerAuth: []
+  /api/reviews/delivery:
+    post:
+      summary: Create delivery review
+      security:
+        - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+    RegisterRequest:
+      type: object
+      required: [name, email, phone, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        password:
+          type: string
+    LoginRequest:
+      type: object
+      required: [identifier, password]
+      properties:
+        identifier:
+          type: string
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+            user:
+              $ref: '#/components/schemas/User'
+    OrderItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+        product_name:
+          type: string
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+        subtotal:
+          type: number
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        order_number:
+          type: string
+        client_id:
+          type: integer
+        restaurant_id:
+          type: integer
+        status:
+          type: string
+        subtotal:
+          type: number
+        total:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+    CreateOrderRequest:
+      type: object
+      required: [restaurant_id, address_id, payment_method, items]
+      properties:
+        restaurant_id:
+          type: integer
+        address_id:
+          type: integer
+        payment_method:
+          type: string
+        delivery_fee:
+          type: number
+        discount:
+          type: number
+        notes:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id:
+                type: integer
+              quantity:
+                type: integer
+              notes:
+                type: string
+    Delivery:
+      type: object
+      properties:
+        order_id:
+          type: integer
+        delivery_id:
+          type: integer
+        status:
+          type: string
+        current_latitude:
+          type: number
+        current_longitude:
+          type: number
+    OrderEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            order:
+              $ref: '#/components/schemas/Order'
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderItem'
+            delivery:
+              $ref: '#/components/schemas/Delivery'
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
